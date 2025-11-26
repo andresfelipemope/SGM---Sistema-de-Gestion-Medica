@@ -1,0 +1,220 @@
+.calendar-container {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.calendar-header h2 {
+  font-size: 28px;
+  color: #333;
+}
+
+.calendar-controls {
+  display: flex;
+  gap: 12px;
+}
+
+.calendar-controls button {
+  background: #667eea;
+  color: white;
+  padding: 10px 20px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.calendar-controls button:hover {
+  background: #5568d3;
+  transform: translateY(-2px);
+}
+
+.calendar-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.calendar-day {
+  background: #f8f9fa;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  padding: 16px;
+  min-height: 200px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.calendar-day:hover {
+  border-color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+.calendar-day.selected {
+  border-color: #667eea;
+  background: #f0f4ff;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.calendar-day.today {
+  border-color: #28a745;
+  background: #f0fff4;
+}
+
+.day-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.day-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #667eea;
+  text-transform: capitalize;
+}
+
+.day-number {
+  font-size: 24px;
+  font-weight: 700;
+  color: #333;
+}
+
+.day-content {
+  font-size: 14px;
+}
+
+.appointments-section {
+  margin-bottom: 12px;
+}
+
+.appointments-section strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #333;
+  font-size: 14px;
+}
+
+.appointment-item {
+  background: #fff3cd;
+  padding: 6px 8px;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.medicines-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.medicine-time-slot {
+  background: #e7f3ff;
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.time-label {
+  font-weight: 600;
+  font-size: 12px;
+  color: #667eea;
+  margin-bottom: 4px;
+}
+
+.medicine-item {
+  font-size: 13px;
+  padding: 4px 0;
+  color: #333;
+}
+
+.empty-day {
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+  padding: 20px 0;
+}
+
+.selected-day-details {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 24px;
+  margin-top: 24px;
+}
+
+.selected-day-details h3 {
+  font-size: 24px;
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.details-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+}
+
+.details-section {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.details-section h4 {
+  font-size: 20px;
+  color: #667eea;
+  margin-bottom: 16px;
+}
+
+.details-section ul {
+  list-style: none;
+  padding: 0;
+}
+
+.details-section li {
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.details-section p {
+  color: #666;
+  font-size: 16px;
+  font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .calendar-week {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .details-content {
+    grid-template-columns: 1fr;
+  }
+}
+

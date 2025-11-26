@@ -1,0 +1,268 @@
+.qr-manager-container {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.qr-section {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.qr-section h2 {
+  font-size: 24px;
+  color: #333;
+  margin-bottom: 12px;
+}
+
+.section-description {
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.qr-actions {
+  margin-bottom: 24px;
+}
+
+.action-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 16px 32px;
+  font-size: 18px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.qr-display {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  padding: 24px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  margin-top: 24px;
+}
+
+.qr-code-container {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-info {
+  flex: 1;
+  min-width: 200px;
+}
+
+.qr-info p {
+  font-size: 16px;
+  margin: 12px 0;
+  color: #333;
+}
+
+.download-button,
+.clear-button {
+  margin-top: 16px;
+  margin-right: 12px;
+  padding: 12px 24px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.download-button {
+  background: #28a745;
+  color: white;
+}
+
+.download-button:hover {
+  background: #218838;
+  transform: translateY(-2px);
+}
+
+.clear-button {
+  background: #6c757d;
+  color: white;
+}
+
+.clear-button:hover {
+  background: #5a6268;
+  transform: translateY(-2px);
+}
+
+.scanner-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  margin-top: 24px;
+}
+
+#qr-reader {
+  width: 100%;
+  max-width: 400px;
+}
+
+.stop-button {
+  background: #dc3545;
+  color: white;
+  padding: 12px 24px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.stop-button:hover {
+  background: #c82333;
+  transform: translateY(-2px);
+}
+
+.scanned-data {
+  background: #e7f3ff;
+  border: 2px solid #667eea;
+  border-radius: 12px;
+  padding: 24px;
+  margin-top: 24px;
+}
+
+.scanned-data h3 {
+  font-size: 20px;
+  color: #667eea;
+  margin-bottom: 16px;
+}
+
+.data-preview {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.data-preview p {
+  font-size: 16px;
+  margin: 8px 0;
+  color: #333;
+}
+
+.import-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.import-button {
+  background: #28a745;
+  color: white;
+  padding: 12px 24px;
+  font-size: 18px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.import-button:hover {
+  background: #218838;
+  transform: translateY(-2px);
+}
+
+.cancel-button {
+  background: #6c757d;
+  color: white;
+  padding: 12px 24px;
+  font-size: 18px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.cancel-button:hover {
+  background: #5a6268;
+  transform: translateY(-2px);
+}
+
+.qr-instructions {
+  background: #fff3cd;
+  border: 2px solid #ffc107;
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.qr-instructions h3 {
+  font-size: 20px;
+  color: #856404;
+  margin-bottom: 16px;
+}
+
+.qr-instructions ul {
+  list-style: none;
+  padding: 0;
+}
+
+.qr-instructions li {
+  font-size: 16px;
+  color: #856404;
+  margin: 12px 0;
+  padding-left: 24px;
+  position: relative;
+  line-height: 1.6;
+}
+
+.qr-instructions li:before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  color: #ffc107;
+  font-weight: bold;
+}
+
+@media (max-width: 768px) {
+  .qr-display {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .qr-code-container {
+    width: 100%;
+    max-width: 300px;
+  }
+
+  .import-actions {
+    flex-direction: column;
+  }
+
+  .import-button,
+  .cancel-button {
+    width: 100%;
+  }
+}
+
