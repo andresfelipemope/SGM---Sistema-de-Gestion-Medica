@@ -1,17 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode'
+import { Html5Qrcode } from 'html5-qrcode'
 import './QRManager.css'
 
 function QRManager({ medicines, appointments, onImport, onFillMedicineForm, onFillAppointmentForm }) {
   const [qrData, setQrData] = useState(null)
-  const [scanning, setScanning] = useState(false)
   const [scannedData, setScannedData] = useState(null)
   const [selectedMedicines, setSelectedMedicines] = useState([])
   const [selectedAppointments, setSelectedAppointments] = useState([])
   const [showSelection, setShowSelection] = useState(false)
   const [uploadingFile, setUploadingFile] = useState(false)
-  const scannerRef = useRef(null)
   const qrCodeRef = useRef(null)
   const fileInputRef = useRef(null)
 
@@ -66,52 +64,6 @@ function QRManager({ medicines, appointments, onImport, onFillMedicineForm, onFi
     setShowSelection(false)
   }
 
-  const startScanning = () => {
-    setScanning(true)
-    setScannedData(null)
-
-    const scanner = new Html5QrcodeScanner(
-      "qr-reader",
-      {
-        qrbox: {
-          width: 250,
-          height: 250
-        },
-        fps: 5,
-        aspectRatio: 1.0
-      },
-      false
-    )
-
-    scannerRef.current = scanner
-
-    scanner.render(
-      (decodedText) => {
-        try {
-          const parsedData = JSON.parse(decodedText)
-          setScanning(false)
-          scanner.clear()
-          scannerRef.current = null
-          processScannedData(parsedData)
-        } catch (error) {
-          alert('Error al leer el código QR. Asegúrate de que sea un código válido del sistema.')
-          console.error('Error parsing QR:', error)
-        }
-      },
-      (errorMessage) => {
-        // Silently ignore scanning errors (they're normal during scanning)
-      }
-    )
-  }
-
-  const stopScanning = () => {
-    if (scannerRef.current) {
-      scannerRef.current.clear()
-      scannerRef.current = null
-    }
-    setScanning(false)
-  }
-
   const handleImport = () => {
     if (scannedData) {
       if (window.confirm('¿Deseas importar estos datos? Esto reemplazará tus datos actuales.')) {
@@ -132,20 +84,45 @@ function QRManager({ medicines, appointments, onImport, onFillMedicineForm, onFi
         const img = new Image()
         
         img.onload = () => {
-          canvas.width = img.width
-          canvas.height = img.height
-          ctx.drawImage(img, 0, 0)
+          // Asegurar que el canvas tenga un tamaño adecuado para el QR
+          const size = 512 // Tamaño fijo para mejor calidad
+          canvas.width = size
+          canvas.height = size
+          
+          // Limpiar el canvas con fondo blanco
+          ctx.fillStyle = '#FFFFFF'
+          ctx.fillRect(0, 0, size, size)
+          
+          // Dibujar la imagen escalada
+          ctx.drawImage(img, 0, 0, size, size)
+          
+          // Convertir a PNG con mejor calidad
           canvas.toBlob((blob) => {
-            const url = URL.createObjectURL(blob)
-            const link = document.createElement('a')
-            link.href = url
-            link.download = 'sgm-datos-qr.png'
-            link.click()
-            URL.revokeObjectURL(url)
-          })
+            if (blob) {
+              const url = URL.createObjectURL(blob)
+              const link = document.createElement('a')
+              link.href = url
+              link.download = 'sgm-datos-qr.png'
+              document.body.appendChild(link)
+              link.click()
+              document.body.removeChild(link)
+              URL.revokeObjectURL(url)
+            } else {
+              alert('Error al generar el archivo PNG')
+            }
+          }, 'image/png', 1.0) // Calidad máxima
         }
         
-        img.src = 'data:image/svg+xml;base64,' + btoa(svgData)
+        img.onerror = () => {
+          alert('Error al procesar la imagen del QR')
+        }
+        
+        // Codificar el SVG correctamente
+        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })
+        const url = URL.createObjectURL(svgBlob)
+        img.src = url
+      } else {
+        alert('No se encontró el código QR para descargar')
       }
     }
   }
@@ -155,76 +132,153 @@ function QRManager({ medicines, appointments, onImport, onFillMedicineForm, onFi
     if (!file) return
 
     if (!file.type.startsWith('image/')) {
-      alert('Por favor, selecciona un archivo de imagen')
+      alert('Por favor, selecciona un archivo de imagen (PNG, JPG, etc.)')
       return
     }
 
     setUploadingFile(true)
     
     try {
-      const html5QrCode = new Html5Qrcode()
-      const fileReader = new FileReader()
-      
-      fileReader.onload = async (e) => {
-        try {
-          const imageUrl = e.target.result
-          const decodedText = await html5QrCode.scanFile(imageUrl, true)
-          
-          try {
-            const parsedData = JSON.parse(decodedText)
-            processScannedData(parsedData)
-          } catch (error) {
-            alert('El archivo no contiene un código QR válido del sistema.')
-            console.error('Error parsing QR:', error)
-          }
-        } catch (error) {
-          alert('No se pudo leer el código QR del archivo. Asegúrate de que sea un QR válido.')
-          console.error('Error scanning file:', error)
-        } finally {
-          setUploadingFile(false)
-          if (fileInputRef.current) {
-            fileInputRef.current.value = ''
-          }
-        }
+      // Crear un elemento temporal para el escáner (oculto)
+      let tempDiv = document.getElementById('temp-qr-reader')
+      if (!tempDiv) {
+        tempDiv = document.createElement('div')
+        tempDiv.id = 'temp-qr-reader'
+        tempDiv.style.display = 'none'
+        tempDiv.style.position = 'absolute'
+        tempDiv.style.left = '-9999px'
+        document.body.appendChild(tempDiv)
       }
       
-      fileReader.readAsDataURL(file)
+      // Crear instancia de Html5Qrcode con el ID del elemento temporal
+      const html5QrCode = new Html5Qrcode('temp-qr-reader')
+      
+      try {
+        console.log('Archivo seleccionado, tamaño:', file.size, 'tipo:', file.type, 'nombre:', file.name)
+        
+        // Escanear el QR del archivo directamente (scanFile acepta File o string URL)
+        // Primero intentar con el archivo directamente
+        let decodedText
+        try {
+          decodedText = await html5QrCode.scanFile(file, true)
+          console.log('QR decodificado con archivo directo')
+        } catch (fileError) {
+          // Si falla, intentar con Data URL
+          console.log('Intentando con Data URL...')
+          const imageUrl = await new Promise((resolve, reject) => {
+            const fileReader = new FileReader()
+            fileReader.onload = (e) => {
+              resolve(e.target.result)
+            }
+            fileReader.onerror = (error) => {
+              reject(new Error('Error al leer el archivo: ' + error))
+            }
+            fileReader.readAsDataURL(file)
+          })
+          decodedText = await html5QrCode.scanFile(imageUrl, true)
+          console.log('QR decodificado con Data URL')
+        }
+        
+        console.log('QR decodificado, longitud:', decodedText.length)
+        console.log('Primeros 200 caracteres:', decodedText.substring(0, 200))
+        
+        try {
+          const parsedData = JSON.parse(decodedText)
+          console.log('Datos parseados correctamente:', parsedData)
+          // Procesar los datos escaneados (ahora con confirmación)
+          await processScannedData(parsedData)
+        } catch (parseError) {
+          console.error('Error parsing QR JSON:', parseError)
+          console.error('Texto completo:', decodedText)
+          alert('El archivo contiene un QR pero no tiene el formato válido del sistema.\n\n' +
+                'El QR fue leído pero no contiene datos JSON válidos.\n' +
+                'Asegúrate de que el archivo fue generado por este sistema.')
+        }
+      } catch (scanError) {
+        console.error('Error scanning file:', scanError)
+        const errorMessage = scanError.message || scanError.toString() || 'Error desconocido'
+        alert('No se pudo leer el código QR del archivo.\n\n' +
+              'Asegúrate de que:\n' +
+              '1. El archivo sea un PNG válido generado por este sistema\n' +
+              '2. El código QR no esté dañado o borroso\n' +
+              '3. El archivo no esté corrupto\n\n' +
+              'Error técnico: ' + errorMessage)
+      } finally {
+        // Limpiar el elemento temporal
+        try {
+          if (tempDiv && tempDiv.parentNode) {
+            tempDiv.parentNode.removeChild(tempDiv)
+          }
+        } catch (e) {
+          console.warn('Error al limpiar elemento temporal:', e)
+        }
+        setUploadingFile(false)
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
+      }
     } catch (error) {
-      alert('Error al procesar el archivo')
-      console.error('Error:', error)
+      console.error('Error general:', error)
+      const errorMessage = error.message || error.toString() || 'Error desconocido'
+      alert('Error al procesar el archivo: ' + errorMessage)
       setUploadingFile(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
     }
   }
 
-  const processScannedData = (parsedData) => {
+  const processScannedData = async (parsedData) => {
     // Detectar tipo de datos
     if (parsedData.type === 'medicine' && parsedData.data) {
-      // Es una sola medicina - llenar formulario
-      if (onFillMedicineForm) {
-        onFillMedicineForm(parsedData.data)
-        alert('Datos de medicina cargados. Ve a la pestaña de Medicinas para completar el registro.')
+      // Es una sola medicina - preguntar si quiere agendar
+      const confirmMessage = `¿Deseas agendar esta medicina?\n\n` +
+        `Nombre: ${parsedData.data.name}\n` +
+        `Dosis: ${parsedData.data.dose}\n` +
+        `Fecha inicio: ${parsedData.data.startDate ? new Date(parsedData.data.startDate).toLocaleDateString('es-ES') : 'N/A'}\n` +
+        `Horarios: ${parsedData.data.times ? parsedData.data.times.join(', ') : 'N/A'}`
+      
+      if (window.confirm(confirmMessage)) {
+        if (onFillMedicineForm) {
+          onFillMedicineForm(parsedData.data)
+          alert('Datos de medicina cargados. Ve a la pestaña de Medicinas para completar el registro.')
+        }
       }
     } else if (parsedData.type === 'appointment' && parsedData.data) {
-      // Es una sola cita - llenar formulario
-      if (onFillAppointmentForm) {
-        onFillAppointmentForm(parsedData.data)
-        alert('Datos de cita médica cargados. Ve a la pestaña de Citas Médicas para completar el registro.')
+      // Es una sola cita - preguntar si quiere agendar
+      const confirmMessage = `¿Deseas agendar esta cita médica?\n\n` +
+        `Doctor: ${parsedData.data.doctor}\n` +
+        `Fecha: ${parsedData.data.date ? new Date(parsedData.data.date).toLocaleDateString('es-ES') : 'N/A'}\n` +
+        `Hora: ${parsedData.data.time || 'N/A'}\n` +
+        `${parsedData.data.location ? `Lugar: ${parsedData.data.location}\n` : ''}`
+      
+      if (window.confirm(confirmMessage)) {
+        if (onFillAppointmentForm) {
+          onFillAppointmentForm(parsedData.data)
+          alert('Datos de cita médica cargados. Ve a la pestaña de Citas Médicas para completar el registro.')
+        }
       }
     } else if (parsedData.type === 'export' && (parsedData.medicines || parsedData.appointments)) {
-      // Es una exportación múltiple
-      setScannedData(parsedData)
+      // Es una exportación múltiple - preguntar si quiere importar
+      const medicinesCount = parsedData.medicines?.length || 0
+      const appointmentsCount = parsedData.appointments?.length || 0
+      const confirmMessage = `¿Deseas importar estos datos?\n\n` +
+        `Medicinas: ${medicinesCount}\n` +
+        `Citas médicas: ${appointmentsCount}\n\n` +
+        `Esto reemplazará tus datos actuales.`
+      
+      if (window.confirm(confirmMessage)) {
+        setScannedData(parsedData)
+        // Auto-importar después de confirmar
+        setTimeout(() => {
+          handleImport()
+        }, 100)
+      }
     } else {
       alert('El código QR no contiene datos válidos del sistema.')
     }
   }
 
-  useEffect(() => {
-    return () => {
-      if (scannerRef.current) {
-        scannerRef.current.clear()
-      }
-    }
-  }, [])
 
   return (
     <div className="qr-manager-container">
@@ -337,44 +391,40 @@ function QRManager({ medicines, appointments, onImport, onFillMedicineForm, onFi
       </div>
 
       <div className="qr-section">
-        <h2>Escanear Código QR</h2>
+        <h2>Leer Código QR desde Archivo</h2>
         <p className="section-description">
-          Escanea un código QR para importar información. Si es una medicina o cita individual, se llenará automáticamente el formulario correspondiente.
+          Sube un archivo de imagen (PNG, JPG, etc.) que contenga un código QR para importar información. 
+          Si es una medicina o cita individual, se te preguntará si deseas agendarla.
         </p>
 
-        {!scanning && !scannedData && (
+        {!scannedData && (
           <div className="scan-options">
-            <button onClick={startScanning} className="action-button">
-              Iniciar Escaneo con Cámara
-            </button>
             <div className="file-upload-section">
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
                 onChange={handleFileUpload}
                 style={{ display: 'none' }}
                 id="qr-file-input"
+                disabled={uploadingFile}
               />
-              <label htmlFor="qr-file-input" className="file-upload-button">
-                {uploadingFile ? 'Procesando...' : 'Cargar Archivo QR'}
+              <label htmlFor="qr-file-input" className={`file-upload-button ${uploadingFile ? 'disabled' : ''}`}>
+                {uploadingFile ? 'Procesando archivo...' : '📁 Cargar Archivo QR (PNG, JPG, etc.)'}
               </label>
             </div>
           </div>
         )}
 
-        {scanning && (
-          <div className="scanner-container">
-            <div id="qr-reader"></div>
-            <button onClick={stopScanning} className="stop-button">
-              Detener Escaneo
-            </button>
+        {uploadingFile && (
+          <div className="uploading-indicator">
+            <p>Leyendo código QR del archivo...</p>
           </div>
         )}
 
         {scannedData && (
           <div className="scanned-data">
-            <h3>Datos Escaneados</h3>
+            <h3>Datos Leídos del QR</h3>
             <div className="data-preview">
               <p><strong>Medicinas encontradas:</strong> {scannedData.medicines?.length || 0}</p>
               <p><strong>Citas encontradas:</strong> {scannedData.appointments?.length || 0}</p>
@@ -388,7 +438,9 @@ function QRManager({ medicines, appointments, onImport, onFillMedicineForm, onFi
               </button>
               <button onClick={() => {
                 setScannedData(null)
-                stopScanning()
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = ''
+                }
               }} className="cancel-button">
                 Cancelar
               </button>
@@ -400,10 +452,10 @@ function QRManager({ medicines, appointments, onImport, onFillMedicineForm, onFi
       <div className="qr-instructions">
         <h3>Instrucciones</h3>
         <ul>
-          <li><strong>Para generar QR:</strong> Selecciona las medicinas y/o citas que deseas compartir, luego genera el código QR.</li>
-          <li><strong>Para escanear QR:</strong> Haz clic en "Iniciar Escaneo" y apunta la cámara hacia el código QR. Asegúrate de dar permisos de cámara al navegador.</li>
+          <li><strong>Para generar QR:</strong> Selecciona las medicinas y/o citas que deseas compartir, luego genera el código QR y descárgalo como imagen PNG.</li>
+          <li><strong>Para leer QR:</strong> Haz clic en "Cargar Archivo QR" y selecciona la imagen PNG que descargaste. El sistema leerá el código QR automáticamente.</li>
           <li><strong>Formato QR:</strong> Los QR pueden contener una medicina individual, una cita individual, o múltiples items para importar.</li>
-          <li><strong>Llenado automático:</strong> Si escaneas un QR de un solo item, el formulario correspondiente se llenará automáticamente.</li>
+          <li><strong>Confirmación:</strong> Al leer un QR, se te preguntará si deseas agendar/importar los datos antes de hacerlo.</li>
         </ul>
       </div>
     </div>

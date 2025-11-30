@@ -1,43 +1,123 @@
 /**
  * API Service Layer
  * 
- * Esta capa de servicio prepara la aplicación para conectarse con Django REST Framework.
- * Actualmente usa localStorage como mock, pero está estructurado para fácil migración a API calls.
- * 
- * Para migrar a backend:
- * 1. Reemplazar las funciones mock con llamadas fetch/axios a los endpoints de Django
- * 2. Manejar autenticación con tokens (JWT)
- * 3. Manejar errores de red y respuestas del servidor
+ * Sistema de autenticación y gestión de usuarios usando localStorage
+ * Implementa hash de contraseñas simple para frontend
  */
 
 const API_BASE_URL = 'http://127.0.0.1:8000/'
 
+// ==================== UTILITY FUNCTIONS ====================
+/**
+ * Hash simple de contraseña (solo para frontend, no para producción real)
+ */
+function hashPassword(password) {
+  let hash = 0
+  for (let i = 0; i < password.length; i++) {
+    const char = password.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // Convert to 32bit integer
+  }
+  return hash.toString()
+}
+
+/**
+ * Verificar contraseña
+ */
+function verifyPassword(password, hashedPassword) {
+  return hashPassword(password) === hashedPassword
+}
+
 // ==================== AUTHENTICATION ====================
 export const authService = {
+  /**
+   * Registrar nuevo usuario o cuidador
+   * @param {string} email 
+   * @param {string} password 
+   * @param {string} name 
+   * @param {string} userType - 'usuario' o 'cuidador'
+   * @returns {Promise<{user: object}>}
+   */
+  async register(email, password, name, userType) {
+    // Verificar si el usuario ya existe
+    const users = JSON.parse(localStorage.getItem('users') || '[]')
+    const existingUser = users.find(u => u.email === email && u.userType === userType)
+    
+    if (existingUser) {
+      throw new Error('Este correo ya está registrado')
+    }
+
+    const newUser = {
+      id: Date.now(),
+      email,
+      passwordHash: hashPassword(password),
+      name,
+      userType,
+      createdAt: new Date().toISOString()
+    }
+
+    users.push(newUser)
+    localStorage.setItem('users', JSON.stringify(users))
+
+    // Si es usuario (paciente), crear perfil de paciente
+    if (userType === 'usuario') {
+      const patients = JSON.parse(localStorage.getItem('patients') || '[]')
+      const newPatient = {
+        id: newUser.id,
+        userId: newUser.id,
+        name,
+        email,
+        createdAt: new Date().toISOString()
+      }
+      patients.push(newPatient)
+      localStorage.setItem('patients', JSON.stringify(patients))
+    }
+
+    return Promise.resolve({
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
+        userType: newUser.userType
+      }
+    })
+  },
+
   /**
    * Login de usuario o cuidador
    * @param {string} email 
    * @param {string} password 
    * @param {string} userType - 'usuario' o 'cuidador'
-   * @returns {Promise<{user: object, token: string}>}
+   * @returns {Promise<{user: object}>}
    */
   async login(email, password, userType) {
-    // TODO: Reemplazar con llamada a API
-    // return fetch(`${API_BASE_URL}/auth/login/`, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ email, password, userType })
-    // }).then(res => res.json())
+    const users = JSON.parse(localStorage.getItem('users') || '[]')
+    const user = users.find(u => u.email === email && u.userType === userType)
     
-    // Mock implementation
+    if (!user) {
+      throw new Error('Usuario no encontrado')
+    }
+
+    if (!verifyPassword(password, user.passwordHash)) {
+      throw new Error('Contraseña incorrecta')
+    }
+
+    // Obtener datos del paciente si es usuario
+    let patientData = null
+    if (userType === 'usuario') {
+      const patients = JSON.parse(localStorage.getItem('patients') || '[]')
+      patientData = patients.find(p => p.userId === user.id)
+    }
+
     return Promise.resolve({
       user: {
-        id: Date.now(),
-        email,
-        userType,
-        name: email.split('@')[0]
-      },
-      token: 'mock-token-' + Date.now()
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        userType: user.userType,
+        patientId: userType === 'usuario' ? user.id : null,
+        patient: patientData
+      }
     })
   },
 
@@ -46,8 +126,6 @@ export const authService = {
    * @returns {Promise<void>}
    */
   async logout() {
-    // TODO: Llamar a API para invalidar token
-    // return fetch(`${API_BASE_URL}/auth/logout/`, { method: 'POST' })
     return Promise.resolve()
   },
 
@@ -56,9 +134,6 @@ export const authService = {
    * @returns {Promise<object>}
    */
   async getCurrentUser() {
-    // TODO: Reemplazar con llamada a API
-    // return fetch(`${API_BASE_URL}/auth/me/`).then(res => res.json())
-    
     const user = localStorage.getItem('user')
     return Promise.resolve(user ? JSON.parse(user) : null)
   }
@@ -72,12 +147,15 @@ export const patientService = {
    * @returns {Promise<Array>}
    */
   async getPatientsByCaregiver(caregiverId) {
-    // TODO: Reemplazar con llamada a API
-    // return fetch(`${API_BASE_URL}/caregivers/${caregiverId}/patients/`).then(res => res.json())
+    const relations = JSON.parse(localStorage.getItem('caregiver_patient_relations') || '[]')
+    const patientIds = relations
+      .filter(r => r.caregiverId === caregiverId)
+      .map(r => r.patientId)
     
-    // Mock implementation
-    const patients = localStorage.getItem(`caregiver_${caregiverId}_patients`)
-    return Promise.resolve(patients ? JSON.parse(patients) : [])
+    const allPatients = JSON.parse(localStorage.getItem('patients') || '[]')
+    const associatedPatients = allPatients.filter(p => patientIds.includes(p.id))
+    
+    return Promise.resolve(associatedPatients)
   },
 
   /**
@@ -86,32 +164,69 @@ export const patientService = {
    * @returns {Promise<object>}
    */
   async getPatient(patientId) {
-    // TODO: Reemplazar con llamada a API
-    // return fetch(`${API_BASE_URL}/patients/${patientId}/`).then(res => res.json())
-    
-    const patients = localStorage.getItem('patients')
-    const allPatients = patients ? JSON.parse(patients) : []
-    return Promise.resolve(allPatients.find(p => p.id === patientId) || null)
+    const patients = JSON.parse(localStorage.getItem('patients') || '[]')
+    return Promise.resolve(patients.find(p => p.id === patientId) || null)
   },
 
   /**
-   * Buscar pacientes (para selección en login)
+   * Buscar pacientes asociados a un cuidador (para selección en login)
+   * @param {number} caregiverId 
    * @param {string} searchTerm 
    * @returns {Promise<Array>}
    */
-  async searchPatients(searchTerm) {
-    // TODO: Reemplazar con llamada a API
-    // return fetch(`${API_BASE_URL}/patients/search/?q=${searchTerm}`).then(res => res.json())
+  async searchPatientsByCaregiver(caregiverId, searchTerm) {
+    const patients = await this.getPatientsByCaregiver(caregiverId)
     
-    // Mock implementation
-    const patients = localStorage.getItem('patients')
-    const allPatients = patients ? JSON.parse(patients) : []
+    if (!searchTerm) {
+      return Promise.resolve(patients)
+    }
+    
     return Promise.resolve(
-      allPatients.filter(p => 
+      patients.filter(p => 
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.email?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     )
+  },
+
+  /**
+   * Asociar un paciente a un cuidador
+   * @param {number} caregiverId 
+   * @param {number} patientId 
+   * @returns {Promise<void>}
+   */
+  async associatePatientToCaregiver(caregiverId, patientId) {
+    const relations = JSON.parse(localStorage.getItem('caregiver_patient_relations') || '[]')
+    
+    // Verificar si ya existe la relación
+    const exists = relations.some(r => r.caregiverId === caregiverId && r.patientId === patientId)
+    if (exists) {
+      return Promise.resolve()
+    }
+
+    relations.push({
+      caregiverId,
+      patientId,
+      createdAt: new Date().toISOString()
+    })
+    
+    localStorage.setItem('caregiver_patient_relations', JSON.stringify(relations))
+    return Promise.resolve()
+  },
+
+  /**
+   * Desasociar un paciente de un cuidador
+   * @param {number} caregiverId 
+   * @param {number} patientId 
+   * @returns {Promise<void>}
+   */
+  async disassociatePatientFromCaregiver(caregiverId, patientId) {
+    const relations = JSON.parse(localStorage.getItem('caregiver_patient_relations') || '[]')
+    const updatedRelations = relations.filter(
+      r => !(r.caregiverId === caregiverId && r.patientId === patientId)
+    )
+    localStorage.setItem('caregiver_patient_relations', JSON.stringify(updatedRelations))
+    return Promise.resolve()
   }
 }
 

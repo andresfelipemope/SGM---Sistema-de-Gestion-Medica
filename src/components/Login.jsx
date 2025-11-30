@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { patientService } from '../services/api'
+import { useNavigate, Link } from 'react-router-dom'
+import { authService, patientService } from '../services/api'
 import './Login.css'
 
 function Login({ onLogin }) {
@@ -13,18 +13,20 @@ function Login({ onLogin }) {
   const [filteredPatients, setFilteredPatients] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [caregiverId, setCaregiverId] = useState(null)
   const navigate = useNavigate()
 
-  // Cargar pacientes cuando es cuidador
+  // Cargar pacientes cuando es cuidador y después de autenticar
   useEffect(() => {
-    if (userType === 'cuidador') {
+    if (userType === 'cuidador' && caregiverId) {
       loadPatients()
     } else {
       setPatients([])
       setFilteredPatients([])
       setSelectedPatientId(null)
+      setCaregiverId(null)
     }
-  }, [userType])
+  }, [userType, caregiverId])
 
   // Filtrar pacientes al buscar
   useEffect(() => {
@@ -40,31 +42,67 @@ function Login({ onLogin }) {
   }, [searchTerm, patients])
 
   const loadPatients = async () => {
+    if (!caregiverId) return
+    
     setLoading(true)
     try {
-      // TODO: En producción, obtener pacientes asociados al cuidador desde API
-      // Por ahora, cargar desde localStorage o crear lista mock
-      const savedPatients = localStorage.getItem('patients')
-      if (savedPatients) {
-        const patientsList = JSON.parse(savedPatients)
-        setPatients(patientsList)
-        setFilteredPatients(patientsList)
-      } else {
-        // Crear lista mock de pacientes para demostración
-        const mockPatients = [
-          { id: 1, name: 'Juan Pérez', email: 'juan@example.com' },
-          { id: 2, name: 'María García', email: 'maria@example.com' },
-          { id: 3, name: 'Carlos López', email: 'carlos@example.com' }
-        ]
-        localStorage.setItem('patients', JSON.stringify(mockPatients))
-        setPatients(mockPatients)
-        setFilteredPatients(mockPatients)
+      const patientsList = await patientService.getPatientsByCaregiver(caregiverId)
+      setPatients(patientsList)
+      setFilteredPatients(patientsList)
+      
+      if (patientsList.length === 0) {
+        setError('No tienes pacientes asociados. Por favor, contacta al administrador para asociar pacientes a tu cuenta.')
       }
     } catch (error) {
       console.error('Error loading patients:', error)
       setError('Error al cargar pacientes')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleUserTypeChange = (newUserType) => {
+    setUserType(newUserType)
+    setEmail('')
+    setPassword('')
+    setError('')
+    setSelectedPatientId(null)
+    setCaregiverId(null)
+    setPatients([])
+    setFilteredPatients([])
+  }
+
+  const handlePasswordChange = async (newPassword) => {
+    // Si es cuidador y tenemos email y contraseña, intentar verificar y cargar pacientes
+    if (userType === 'cuidador' && email && newPassword) {
+      try {
+        // Verificar si el usuario existe y la contraseña es correcta
+        const users = JSON.parse(localStorage.getItem('users') || '[]')
+        const user = users.find(u => u.email === email && u.userType === 'cuidador')
+        
+        if (user) {
+          // Verificar contraseña (usando el mismo hash que en authService)
+          const hashPassword = (pwd) => {
+            let hash = 0
+            for (let i = 0; i < pwd.length; i++) {
+              const char = pwd.charCodeAt(i)
+              hash = ((hash << 5) - hash) + char
+              hash = hash & hash
+            }
+            return hash.toString()
+          }
+          
+          if (hashPassword(newPassword) === user.passwordHash) {
+            setCaregiverId(user.id)
+          } else {
+            setCaregiverId(null)
+            setPatients([])
+            setFilteredPatients([])
+          }
+        }
+      } catch (error) {
+        console.error('Error checking user:', error)
+      }
     }
   }
 
@@ -78,44 +116,53 @@ function Login({ onLogin }) {
       return
     }
 
-    if (userType === 'cuidador' && !selectedPatientId) {
-      setError('Por favor, selecciona un paciente')
-      return
-    }
-
     setLoading(true)
 
     try {
-      // TODO: Reemplazar con llamada a API real
-      // const response = await authService.login(email, password, userType)
-      
-      // Simulación de login
-      let patientData = null
-      if (userType === 'usuario') {
-        // El usuario es el paciente
-        patientData = {
-          id: Date.now(),
-          name: email.split('@')[0],
-          email
+      // Autenticar usuario
+      const loginResult = await authService.login(email, password, userType)
+      const user = loginResult.user
+
+      // Si es cuidador, necesitamos seleccionar un paciente
+      if (userType === 'cuidador') {
+        // Cargar pacientes asociados al cuidador
+        const associatedPatients = await patientService.getPatientsByCaregiver(user.id)
+        
+        if (associatedPatients.length === 0) {
+          setError('No tienes pacientes asociados. Ve a la pestaña "Pacientes" en el dashboard para asociar pacientes a tu cuenta.')
+          setLoading(false)
+          return
         }
-      } else {
-        // Buscar paciente seleccionado
-        patientData = patients.find(p => p.id === selectedPatientId)
+
+        // Si solo hay un paciente, seleccionarlo automáticamente
+        if (associatedPatients.length === 1) {
+          user.patientId = associatedPatients[0].id
+          user.patient = associatedPatients[0]
+        } else if (!selectedPatientId) {
+          // Si hay múltiples pacientes y no se ha seleccionado uno, mostrar la lista
+          setError('Por favor, selecciona un paciente de la lista')
+          setPatients(associatedPatients)
+          setFilteredPatients(associatedPatients)
+          setLoading(false)
+          return
+        } else {
+          // Usar el paciente seleccionado
+          const selectedPatient = associatedPatients.find(p => p.id === selectedPatientId)
+          if (selectedPatient) {
+            user.patientId = selectedPatient.id
+            user.patient = selectedPatient
+          } else {
+            setError('El paciente seleccionado no está asociado a tu cuenta')
+            setLoading(false)
+            return
+          }
+        }
       }
 
-      const userData = {
-        id: Date.now(),
-        email,
-        userType,
-        name: userType === 'cuidador' ? `Cuidador: ${email.split('@')[0]}` : email.split('@')[0],
-        patientId: userType === 'usuario' ? patientData?.id : selectedPatientId,
-        patient: patientData
-      }
-
-      onLogin(userData)
+      onLogin(user)
       navigate('/dashboard')
     } catch (error) {
-      setError('Error al iniciar sesión. Por favor, intenta nuevamente.')
+      setError(error.message || 'Error al iniciar sesión. Verifica tus credenciales.')
       console.error('Login error:', error)
     } finally {
       setLoading(false)
@@ -134,7 +181,7 @@ function Login({ onLogin }) {
             <select
               id="userType"
               value={userType}
-              onChange={(e) => setUserType(e.target.value)}
+              onChange={(e) => handleUserTypeChange(e.target.value)}
               className="form-select"
             >
               <option value="usuario">Usuario</option>
@@ -148,7 +195,13 @@ function Login({ onLogin }) {
               type="email"
               id="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                setCaregiverId(null)
+                setPatients([])
+                setFilteredPatients([])
+                setSelectedPatientId(null)
+              }}
               placeholder="tu@email.com"
               required
             />
@@ -160,23 +213,28 @@ function Login({ onLogin }) {
               type="password"
               id="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                handlePasswordChange(e.target.value)
+              }}
               placeholder="••••••••"
               required
             />
           </div>
 
-          {userType === 'cuidador' && (
+          {userType === 'cuidador' && patients.length > 0 && (
             <div className="form-group">
               <label htmlFor="patientSearch">Seleccionar Paciente *</label>
-              <input
-                type="text"
-                id="patientSearch"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Buscar paciente por nombre o email..."
-                className="patient-search-input"
-              />
+              {patients.length > 1 && (
+                <input
+                  type="text"
+                  id="patientSearch"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar paciente por nombre o email..."
+                  className="patient-search-input"
+                />
+              )}
               {filteredPatients.length > 0 && (
                 <div className="patient-list">
                   {filteredPatients.map(patient => (
@@ -201,6 +259,11 @@ function Login({ onLogin }) {
                   Paciente seleccionado: {patients.find(p => p.id === selectedPatientId)?.name}
                 </div>
               )}
+              {patients.length === 1 && !selectedPatientId && (
+                <div className="info-message">
+                  <p>Seleccionarás automáticamente: {patients[0].name}</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -217,8 +280,8 @@ function Login({ onLogin }) {
           </button>
         </form>
 
-        <p className="login-note">
-          Nota: Esta es una versión de demostración. Cualquier correo y contraseña funcionarán.
+        <p className="login-link">
+          ¿No tienes una cuenta? <Link to="/register">Regístrate aquí</Link>
         </p>
       </div>
     </div>

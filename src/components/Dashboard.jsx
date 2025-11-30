@@ -3,7 +3,8 @@ import Calendar from './Calendar'
 import MedicineForm from './MedicineForm'
 import AppointmentForm from './AppointmentForm'
 import QRManager from './QRManager'
-import { medicineService, appointmentService } from '../services/api'
+import PatientManager from './PatientManager'
+import { medicineService, appointmentService, patientService } from '../services/api'
 import './Dashboard.css'
 
 function Dashboard({ user, onLogout }) {
@@ -11,11 +12,41 @@ function Dashboard({ user, onLogout }) {
   const [medicines, setMedicines] = useState([])
   const [appointments, setAppointments] = useState([])
   const [currentPatientId, setCurrentPatientId] = useState(user.patientId || user.id)
+  const [availablePatients, setAvailablePatients] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadData()
+    if (user.userType === 'cuidador') {
+      loadAvailablePatients()
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (currentPatientId) {
+      loadData()
+    }
   }, [currentPatientId])
+
+  useEffect(() => {
+    // Recargar pacientes cuando se cambia a la pestaña de pacientes
+    if (activeTab === 'patients' && user.userType === 'cuidador') {
+      loadAvailablePatients()
+    }
+  }, [activeTab])
+
+  const loadAvailablePatients = async () => {
+    try {
+      const patients = await patientService.getPatientsByCaregiver(user.id)
+      setAvailablePatients(patients)
+      
+      // Si no hay paciente seleccionado y hay pacientes disponibles, seleccionar el primero
+      if (patients.length > 0 && !currentPatientId) {
+        setCurrentPatientId(patients[0].id)
+      }
+    } catch (error) {
+      console.error('Error loading available patients:', error)
+    }
+  }
 
   const loadData = async () => {
     setLoading(true)
@@ -42,6 +73,22 @@ function Dashboard({ user, onLogout }) {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handlePatientChange = async (patientId) => {
+    setCurrentPatientId(patientId)
+    const selectedPatient = availablePatients.find(p => p.id === patientId)
+    if (selectedPatient) {
+      // Actualizar el usuario en localStorage con el nuevo paciente seleccionado
+      const updatedUser = {
+        ...user,
+        patientId: selectedPatient.id,
+        patient: selectedPatient
+      }
+      localStorage.setItem('user', JSON.stringify(updatedUser))
+    }
+    // Recargar datos del nuevo paciente
+    await loadData()
   }
 
   const handleAddMedicine = async (medicine) => {
@@ -137,9 +184,26 @@ function Dashboard({ user, onLogout }) {
               <span className="user-info">
                 {user.name} ({user.userType === 'usuario' ? 'Paciente' : 'Cuidador'})
               </span>
-              {user.userType === 'cuidador' && user.patient && (
-                <span className="patient-info">
-                  Paciente: {user.patient.name}
+              {user.userType === 'cuidador' && availablePatients.length > 0 && (
+                <div className="patient-selector">
+                  <label htmlFor="patient-select">Paciente: </label>
+                  <select
+                    id="patient-select"
+                    value={currentPatientId || ''}
+                    onChange={(e) => handlePatientChange(Number(e.target.value))}
+                    className="patient-select-dropdown"
+                  >
+                    {availablePatients.map(patient => (
+                      <option key={patient.id} value={patient.id}>
+                        {patient.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {user.userType === 'cuidador' && availablePatients.length === 0 && (
+                <span className="patient-info no-patients">
+                  No hay pacientes asociados
                 </span>
               )}
             </div>
@@ -175,6 +239,14 @@ function Dashboard({ user, onLogout }) {
         >
           📱 Códigos QR
         </button>
+        {user.userType === 'cuidador' && (
+          <button
+            className={`nav-button ${activeTab === 'patients' ? 'active' : ''}`}
+            onClick={() => setActiveTab('patients')}
+          >
+            👥 Pacientes
+          </button>
+        )}
       </nav>
 
       <main className="dashboard-content">
@@ -202,6 +274,12 @@ function Dashboard({ user, onLogout }) {
             onImport={handleImportData}
             onFillMedicineForm={handleFillMedicineForm}
             onFillAppointmentForm={handleFillAppointmentForm}
+          />
+        )}
+        {activeTab === 'patients' && user.userType === 'cuidador' && (
+          <PatientManager 
+            caregiverId={user.id} 
+            onPatientUpdate={loadAvailablePatients}
           />
         )}
       </main>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import Login from './components/Login'
+import Register from './components/Register'
 import Dashboard from './components/Dashboard'
 import './App.css'
 
@@ -20,6 +21,11 @@ function App() {
     localStorage.setItem('user', JSON.stringify(userData))
   }
 
+  const handleRegister = (userData) => {
+    setUser(userData)
+    localStorage.setItem('user', JSON.stringify(userData))
+  }
+
   const handleLogout = () => {
     setUser(null)
     localStorage.removeItem('user')
@@ -32,6 +38,12 @@ function App() {
           path="/login" 
           element={
             user ? <Navigate to="/dashboard" /> : <Login onLogin={handleLogin} />
+          } 
+        />
+        <Route 
+          path="/register" 
+          element={
+            user ? <Navigate to="/dashboard" /> : <Register onRegister={handleRegister} />
           } 
         />
         <Route 
