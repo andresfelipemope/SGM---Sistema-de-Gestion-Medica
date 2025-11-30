@@ -31,9 +31,22 @@
   gap: 16px;
 }
 
+.user-info-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
 .user-info {
   font-size: 18px;
   font-weight: 500;
+}
+
+.patient-info {
+  font-size: 14px;
+  font-weight: 400;
+  opacity: 0.9;
 }
 
 .logout-button {

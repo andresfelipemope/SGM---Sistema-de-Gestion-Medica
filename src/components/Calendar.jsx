@@ -1,13 +1,30 @@
 import { useState } from 'react'
-import { format, startOfWeek, addDays, isSameDay, parseISO } from 'date-fns'
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameDay, parseISO, isSameMonth, addMonths, subMonths } from 'date-fns'
 import './Calendar.css'
 
 function Calendar({ medicines, appointments }) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(new Date())
 
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  const monthStart = startOfMonth(currentDate)
+  const monthEnd = endOfMonth(currentDate)
+  const startDate = startOfWeek(monthStart, { weekStartsOn: 1 })
+  const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 })
+  
+  const daysInMonth = []
+  let day = startDate
+  while (day <= endDate) {
+    daysInMonth.push(day)
+    day = addDays(day, 1)
+  }
+  
+  const weekDays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+
+  const getMonthName = (date) => {
+    const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+    return months[date.getMonth()]
+  }
 
   const getMedicinesForDate = (date) => {
     return medicines.filter(med => {
@@ -33,90 +50,79 @@ function Calendar({ medicines, appointments }) {
 
   const timesOfDay = ['08:00', '12:00', '16:00', '20:00']
 
-  const goToPreviousWeek = () => {
-    setCurrentDate(addDays(currentDate, -7))
+  const goToPreviousMonth = () => {
+    setCurrentDate(subMonths(currentDate, 1))
   }
 
-  const goToNextWeek = () => {
-    setCurrentDate(addDays(currentDate, 7))
+  const goToNextMonth = () => {
+    setCurrentDate(addMonths(currentDate, 1))
   }
 
   const goToToday = () => {
-    setCurrentDate(new Date())
-    setSelectedDate(new Date())
+    const today = new Date()
+    setCurrentDate(today)
+    setSelectedDate(today)
   }
 
   return (
     <div className="calendar-container">
       <div className="calendar-header">
-        <h2>Calendario de Medicamentos y Citas</h2>
+        <div className="month-year-display">
+          <h2 className="month-title">{getMonthName(currentDate)}</h2>
+          <h2 className="year-title">{format(currentDate, 'yyyy')}</h2>
+        </div>
         <div className="calendar-controls">
-          <button onClick={goToPreviousWeek}>← Semana Anterior</button>
+          <button onClick={goToPreviousMonth}>← Mes Anterior</button>
           <button onClick={goToToday}>Hoy</button>
-          <button onClick={goToNextWeek}>Semana Siguiente →</button>
+          <button onClick={goToNextMonth}>Mes Siguiente →</button>
         </div>
       </div>
 
-      <div className="calendar-week">
-        {weekDays.map((day, index) => {
-          const isSelected = isSameDay(day, selectedDate)
-          const isToday = isSameDay(day, new Date())
-          const dayMedicines = getMedicinesForDate(day)
-          const dayAppointments = getAppointmentsForDate(day)
+      <div className="calendar-month">
+        <div className="calendar-weekdays">
+          {weekDays.map((dayName, index) => (
+            <div key={index} className="weekday-header">{dayName}</div>
+          ))}
+        </div>
+        <div className="calendar-days">
+          {daysInMonth.map((day, index) => {
+            const isSelected = isSameDay(day, selectedDate)
+            const isToday = isSameDay(day, new Date())
+            const isCurrentMonth = isSameMonth(day, currentDate)
+            const dayMedicines = getMedicinesForDate(day)
+            const dayAppointments = getAppointmentsForDate(day)
+            const hasEvents = dayMedicines.length > 0 || dayAppointments.length > 0
 
-          return (
-            <div 
-              key={index} 
-              className={`calendar-day ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''}`}
-              onClick={() => setSelectedDate(day)}
-            >
-              <div className="day-header">
-                <div className="day-name">{format(day, 'EEE')}</div>
+            return (
+              <div 
+                key={index} 
+                className={`calendar-day ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''} ${!isCurrentMonth ? 'other-month' : ''}`}
+                onClick={() => setSelectedDate(day)}
+              >
                 <div className="day-number">{format(day, 'd')}</div>
-              </div>
-
-              <div className="day-content">
-                {dayAppointments.length > 0 && (
-                  <div className="appointments-section">
-                    <strong>🏥 Citas:</strong>
-                    {dayAppointments.map(apt => (
-                      <div key={apt.id} className="appointment-item">
-                        {apt.time} - {apt.doctor}
+                {hasEvents && (
+                  <div className="day-events">
+                    {dayAppointments.length > 0 && (
+                      <div className="event-indicator appointment-indicator" title={`${dayAppointments.length} cita(s)`}>
+                        🏥 {dayAppointments.length}
                       </div>
-                    ))}
+                    )}
+                    {dayMedicines.length > 0 && (
+                      <div className="event-indicator medicine-indicator" title={`${dayMedicines.length} medicina(s)`}>
+                        💊 {dayMedicines.length}
+                      </div>
+                    )}
                   </div>
                 )}
-
-                <div className="medicines-section">
-                  {timesOfDay.map(time => {
-                    const timeMedicines = getMedicinesForTime(day, time)
-                    if (timeMedicines.length === 0) return null
-
-                    return (
-                      <div key={time} className="medicine-time-slot">
-                        <div className="time-label">{time}</div>
-                        {timeMedicines.map(med => (
-                          <div key={med.id} className="medicine-item">
-                            💊 {med.name} ({med.dose})
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  })}
-                </div>
-
-                {dayMedicines.length === 0 && dayAppointments.length === 0 && (
-                  <div className="empty-day">Sin eventos</div>
-                )}
               </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
 
       {selectedDate && (
         <div className="selected-day-details">
-          <h3>Detalles del {format(selectedDate, 'EEEE, d MMMM yyyy')}</h3>
+          <h3>Detalles del {format(selectedDate, 'EEEE, d')} de {getMonthName(selectedDate)} de {format(selectedDate, 'yyyy')}</h3>
           <div className="details-content">
             <div className="details-section">
               <h4>💊 Medicamentos</h4>

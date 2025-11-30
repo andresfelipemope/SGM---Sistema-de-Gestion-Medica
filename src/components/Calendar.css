@@ -14,9 +14,25 @@
   gap: 16px;
 }
 
-.calendar-header h2 {
+.month-year-display {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.month-title {
+  font-size: 36px;
+  color: #667eea;
+  font-weight: 700;
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.year-title {
   font-size: 28px;
-  color: #333;
+  color: #666;
+  font-weight: 600;
+  margin: 0;
 }
 
 .calendar-controls {
@@ -40,21 +56,44 @@
   transform: translateY(-2px);
 }
 
-.calendar-week {
+.calendar-month {
+  margin-bottom: 24px;
+}
+
+.calendar-weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.weekday-header {
+  text-align: center;
+  font-weight: 700;
+  font-size: 16px;
+  color: #667eea;
+  padding: 12px;
+  background: #f0f4ff;
+  border-radius: 8px;
+}
+
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
 }
 
 .calendar-day {
   background: #f8f9fa;
   border: 2px solid #e9ecef;
   border-radius: 12px;
-  padding: 16px;
-  min-height: 200px;
+  padding: 12px;
+  min-height: 100px;
   cursor: pointer;
   transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  position: relative;
 }
 
 .calendar-day:hover {
@@ -74,81 +113,52 @@
   background: #f0fff4;
 }
 
-.day-header {
+.calendar-day.today .day-number {
+  background: #28a745;
+  color: white;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid #dee2e6;
+  justify-content: center;
 }
 
-.day-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: #667eea;
-  text-transform: capitalize;
+.calendar-day.other-month {
+  opacity: 0.4;
+  background: #f0f0f0;
 }
 
 .day-number {
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 700;
   color: #333;
+  margin-bottom: 8px;
 }
 
-.day-content {
-  font-size: 14px;
-}
-
-.appointments-section {
-  margin-bottom: 12px;
-}
-
-.appointments-section strong {
-  display: block;
-  margin-bottom: 4px;
-  color: #333;
-  font-size: 14px;
-}
-
-.appointment-item {
-  background: #fff3cd;
-  padding: 6px 8px;
-  border-radius: 6px;
-  margin-bottom: 4px;
-  font-size: 13px;
-}
-
-.medicines-section {
+.day-events {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
+  flex: 1;
 }
 
-.medicine-time-slot {
-  background: #e7f3ff;
-  padding: 8px;
-  border-radius: 6px;
-}
-
-.time-label {
-  font-weight: 600;
+.event-indicator {
   font-size: 12px;
-  color: #667eea;
-  margin-bottom: 4px;
-}
-
-.medicine-item {
-  font-size: 13px;
-  padding: 4px 0;
-  color: #333;
-}
-
-.empty-day {
+  padding: 4px 8px;
+  border-radius: 6px;
   text-align: center;
-  color: #999;
-  font-size: 14px;
-  padding: 20px 0;
+  font-weight: 600;
+}
+
+.appointment-indicator {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.medicine-indicator {
+  background: #e7f3ff;
+  color: #004085;
 }
 
 .selected-day-details {
@@ -204,13 +214,42 @@
 }
 
 @media (max-width: 768px) {
-  .calendar-week {
-    grid-template-columns: 1fr;
+  .calendar-days {
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+
+  .calendar-day {
+    min-height: 60px;
+    padding: 8px 4px;
+  }
+
+  .day-number {
+    font-size: 14px;
+  }
+
+  .event-indicator {
+    font-size: 10px;
+    padding: 2px 4px;
   }
 
   .calendar-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .month-year-display {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .month-title {
+    font-size: 28px;
+  }
+
+  .year-title {
+    font-size: 22px;
   }
 
   .details-content {

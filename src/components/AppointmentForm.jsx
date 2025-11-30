@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './AppointmentForm.css'
 
 function AppointmentForm({ onAdd, appointments, onDelete }) {
@@ -12,11 +12,38 @@ function AppointmentForm({ onAdd, appointments, onDelete }) {
 
   const [showSuccess, setShowSuccess] = useState(false)
 
+  // Cargar datos prellenados desde QR si existen
+  useEffect(() => {
+    if (window.appointmentFormData) {
+      const data = window.appointmentFormData
+      setFormData({
+        doctor: data.doctor || '',
+        date: data.date || '',
+        time: data.time || '',
+        location: data.location || '',
+        notes: data.notes || ''
+      })
+      // Limpiar después de usar
+      window.appointmentFormData = null
+    }
+  }, [])
+
+  const getTodayDate = () => {
+    const today = new Date()
+    return today.toISOString().split('T')[0]
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
     
     if (!formData.doctor || !formData.date || !formData.time) {
       alert('Por favor, completa todos los campos obligatorios')
+      return
+    }
+
+    // Validar que la fecha no sea anterior a hoy
+    if (formData.date < getTodayDate()) {
+      alert('La fecha de la cita no puede ser anterior a la fecha actual')
       return
     }
 
@@ -83,6 +110,7 @@ function AppointmentForm({ onAdd, appointments, onDelete }) {
                 id="date"
                 value={formData.date}
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                min={getTodayDate()}
                 required
               />
             </div>

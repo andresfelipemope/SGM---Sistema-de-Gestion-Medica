@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './MedicineForm.css'
 
 function MedicineForm({ onAdd, medicines, onDelete }) {
@@ -14,6 +14,24 @@ function MedicineForm({ onAdd, medicines, onDelete }) {
   const [selectedTimes, setSelectedTimes] = useState([])
   const [showSuccess, setShowSuccess] = useState(false)
 
+  // Cargar datos prellenados desde QR si existen
+  useEffect(() => {
+    if (window.medicineFormData) {
+      const data = window.medicineFormData
+      setFormData({
+        name: data.name || '',
+        dose: data.dose || '',
+        startDate: data.startDate || '',
+        endDate: data.endDate || '',
+        times: data.times || [],
+        notes: data.notes || ''
+      })
+      setSelectedTimes(data.times || [])
+      // Limpiar después de usar
+      window.medicineFormData = null
+    }
+  }, [])
+
   const availableTimes = ['08:00', '09:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00']
 
   const handleTimeToggle = (time) => {
@@ -24,11 +42,28 @@ function MedicineForm({ onAdd, medicines, onDelete }) {
     )
   }
 
+  const getTodayDate = () => {
+    const today = new Date()
+    return today.toISOString().split('T')[0]
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
     
     if (!formData.name || !formData.dose || !formData.startDate || selectedTimes.length === 0) {
       alert('Por favor, completa todos los campos obligatorios')
+      return
+    }
+
+    // Validar que la fecha de inicio no sea anterior a hoy
+    if (formData.startDate < getTodayDate()) {
+      alert('La fecha de inicio no puede ser anterior a la fecha actual')
+      return
+    }
+
+    // Validar que la fecha de fin no sea anterior a la fecha de inicio
+    if (formData.endDate && formData.endDate < formData.startDate) {
+      alert('La fecha de fin no puede ser anterior a la fecha de inicio')
       return
     }
 
@@ -99,6 +134,7 @@ function MedicineForm({ onAdd, medicines, onDelete }) {
                 id="startDate"
                 value={formData.startDate}
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                min={getTodayDate()}
                 required
               />
             </div>
@@ -110,6 +146,7 @@ function MedicineForm({ onAdd, medicines, onDelete }) {
                 id="endDate"
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                min={formData.startDate || getTodayDate()}
               />
             </div>
           </div>

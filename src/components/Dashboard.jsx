@@ -3,48 +3,105 @@ import Calendar from './Calendar'
 import MedicineForm from './MedicineForm'
 import AppointmentForm from './AppointmentForm'
 import QRManager from './QRManager'
+import { medicineService, appointmentService } from '../services/api'
 import './Dashboard.css'
 
 function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('calendar')
   const [medicines, setMedicines] = useState([])
   const [appointments, setAppointments] = useState([])
+  const [currentPatientId, setCurrentPatientId] = useState(user.patientId || user.id)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Cargar datos guardados
-    const savedMedicines = localStorage.getItem('medicines')
-    const savedAppointments = localStorage.getItem('appointments')
-    
-    if (savedMedicines) {
-      setMedicines(JSON.parse(savedMedicines))
+    loadData()
+  }, [currentPatientId])
+
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      // Usar servicios preparados para backend
+      const [medicinesData, appointmentsData] = await Promise.all([
+        medicineService.getMedicines(currentPatientId),
+        appointmentService.getAppointments(currentPatientId)
+      ])
+      setMedicines(medicinesData)
+      setAppointments(appointmentsData)
+    } catch (error) {
+      console.error('Error loading data:', error)
+      // Fallback a localStorage si hay error
+      const savedMedicines = localStorage.getItem(`medicines_${currentPatientId}`) || localStorage.getItem('medicines')
+      const savedAppointments = localStorage.getItem(`appointments_${currentPatientId}`) || localStorage.getItem('appointments')
+      
+      if (savedMedicines) {
+        setMedicines(JSON.parse(savedMedicines))
+      }
+      if (savedAppointments) {
+        setAppointments(JSON.parse(savedAppointments))
+      }
+    } finally {
+      setLoading(false)
     }
-    if (savedAppointments) {
-      setAppointments(JSON.parse(savedAppointments))
+  }
+
+  const handleAddMedicine = async (medicine) => {
+    try {
+      // Usar servicio preparado para backend
+      const newMedicine = await medicineService.createMedicine(currentPatientId, medicine)
+      setMedicines([...medicines, newMedicine])
+    } catch (error) {
+      console.error('Error adding medicine:', error)
+      // Fallback
+      const newMedicines = [...medicines, { ...medicine, id: Date.now() }]
+      setMedicines(newMedicines)
+      const key = currentPatientId ? `medicines_${currentPatientId}` : 'medicines'
+      localStorage.setItem(key, JSON.stringify(newMedicines))
     }
-  }, [])
-
-  const handleAddMedicine = (medicine) => {
-    const newMedicines = [...medicines, { ...medicine, id: Date.now() }]
-    setMedicines(newMedicines)
-    localStorage.setItem('medicines', JSON.stringify(newMedicines))
   }
 
-  const handleAddAppointment = (appointment) => {
-    const newAppointments = [...appointments, { ...appointment, id: Date.now() }]
-    setAppointments(newAppointments)
-    localStorage.setItem('appointments', JSON.stringify(newAppointments))
+  const handleAddAppointment = async (appointment) => {
+    try {
+      // Usar servicio preparado para backend
+      const newAppointment = await appointmentService.createAppointment(currentPatientId, appointment)
+      setAppointments([...appointments, newAppointment])
+    } catch (error) {
+      console.error('Error adding appointment:', error)
+      // Fallback
+      const newAppointments = [...appointments, { ...appointment, id: Date.now() }]
+      setAppointments(newAppointments)
+      const key = currentPatientId ? `appointments_${currentPatientId}` : 'appointments'
+      localStorage.setItem(key, JSON.stringify(newAppointments))
+    }
   }
 
-  const handleDeleteMedicine = (id) => {
-    const updatedMedicines = medicines.filter(med => med.id !== id)
-    setMedicines(updatedMedicines)
-    localStorage.setItem('medicines', JSON.stringify(updatedMedicines))
+  const handleDeleteMedicine = async (id) => {
+    try {
+      // Usar servicio preparado para backend
+      await medicineService.deleteMedicine(currentPatientId, id)
+      setMedicines(medicines.filter(med => med.id !== id))
+    } catch (error) {
+      console.error('Error deleting medicine:', error)
+      // Fallback
+      const updatedMedicines = medicines.filter(med => med.id !== id)
+      setMedicines(updatedMedicines)
+      const key = currentPatientId ? `medicines_${currentPatientId}` : 'medicines'
+      localStorage.setItem(key, JSON.stringify(updatedMedicines))
+    }
   }
 
-  const handleDeleteAppointment = (id) => {
-    const updatedAppointments = appointments.filter(apt => apt.id !== id)
-    setAppointments(updatedAppointments)
-    localStorage.setItem('appointments', JSON.stringify(updatedAppointments))
+  const handleDeleteAppointment = async (id) => {
+    try {
+      // Usar servicio preparado para backend
+      await appointmentService.deleteAppointment(currentPatientId, id)
+      setAppointments(appointments.filter(apt => apt.id !== id))
+    } catch (error) {
+      console.error('Error deleting appointment:', error)
+      // Fallback
+      const updatedAppointments = appointments.filter(apt => apt.id !== id)
+      setAppointments(updatedAppointments)
+      const key = currentPatientId ? `appointments_${currentPatientId}` : 'appointments'
+      localStorage.setItem(key, JSON.stringify(updatedAppointments))
+    }
   }
 
   const handleImportData = (importedData) => {
@@ -58,15 +115,34 @@ function Dashboard({ user, onLogout }) {
     }
   }
 
+  const handleFillMedicineForm = (medicineData) => {
+    // Guardar datos en window para que el formulario los lea
+    window.medicineFormData = medicineData
+    setActiveTab('medicine')
+  }
+
+  const handleFillAppointmentForm = (appointmentData) => {
+    // Guardar datos en window para que el formulario los lea
+    window.appointmentFormData = appointmentData
+    setActiveTab('appointment')
+  }
+
   return (
     <div className="dashboard">
       <header className="dashboard-header">
         <div className="header-content">
           <h1>Sistema de Gestión Médica</h1>
           <div className="header-actions">
-            <span className="user-info">
-              {user.name} ({user.userType === 'usuario' ? 'Usuario' : 'Cuidador'})
-            </span>
+            <div className="user-info-section">
+              <span className="user-info">
+                {user.name} ({user.userType === 'usuario' ? 'Paciente' : 'Cuidador'})
+              </span>
+              {user.userType === 'cuidador' && user.patient && (
+                <span className="patient-info">
+                  Paciente: {user.patient.name}
+                </span>
+              )}
+            </div>
             <button onClick={onLogout} className="logout-button">
               Cerrar Sesión
             </button>
@@ -124,6 +200,8 @@ function Dashboard({ user, onLogout }) {
             medicines={medicines} 
             appointments={appointments}
             onImport={handleImportData}
+            onFillMedicineForm={handleFillMedicineForm}
+            onFillAppointmentForm={handleFillAppointmentForm}
           />
         )}
       </main>
